@@ -4,7 +4,7 @@ Standalone [Agent Skills](https://agentskills.io/) for installing and using Spac
 
 ## Included skills
 
-- `install-space-station` — installs and operates the public GHCR stack with Docker Compose while keeping runtime secrets local.
+- `install-space-station` — installs and operates the public GHCR stack with Docker Compose, supporting GitHub App, user-entered PAT, and optional server-configured PAT login while keeping runtime secrets local.
 - `space-station-review` — reviews GitHub pull requests through a running Space Station instance, including exact-commit previews, visual anchors, screenshots, replies, and resolution markers.
 
 ## Install for Pi
@@ -30,7 +30,7 @@ Pi can also load this checkout directly:
 pi --skill "$PWD/skills"
 ```
 
-Skills contain no credentials. The installer creates an owner-readable local `.env`, generates local signing material without displaying it, and requires users to enter their own GitHub App values outside the agent conversation.
+Skills contain no credentials. The installer creates an owner-readable local `.env`, generates local signing material without displaying it, and requires users to choose an authentication mode and enter any GitHub App or server-configured PAT values outside the agent conversation. Browser-entered PATs remain API/session-only and are never exposed to the web or preview roles.
 
 ## Verify
 

@@ -77,4 +77,43 @@ describe("standalone installer", () => {
     const after = await readFile(envFile, "utf8");
     expect(after).toBe(before.replace("SPACE_STATION_VERSION=1.0.0", "SPACE_STATION_VERSION=1.2.3"));
   });
+
+  test("supports PAT-only mode and keeps configured PAT values out of role metadata", async () => {
+    const root = await mkdtemp(join(tmpdir(), "space-station-install-"));
+    roots.push(root);
+    expect((await run("bootstrap.sh", [root, "1.0.1"])).exitCode).toBe(0);
+
+    const envFile = join(root, ".env");
+    await replace(envFile, "GITHUB_AUTH_METHODS", "personal_access_token");
+    const patOnly = await run("check-config.sh", [root]);
+    expect(patOnly.exitCode).toBe(0);
+
+    await replace(envFile, "GITHUB_CONFIGURED_PAT_LOGIN", "true");
+    const missingConfiguredPat = await run("check-config.sh", [root]);
+    expect(missingConfiguredPat.exitCode).toBe(1);
+    expect(missingConfiguredPat.stderr).toContain("GITHUB_PERSONAL_ACCESS_TOKEN");
+    expect(missingConfiguredPat.stderr).not.toContain("test-token");
+
+    await writeFile(
+      envFile,
+      `${await readFile(envFile, "utf8")}\nGITHUB_PERSONAL_ACCESS_TOKEN=test-token\n`,
+      { mode: 0o600 },
+    );
+    await chmod(envFile, 0o600);
+    const configuredPat = await run("check-config.sh", [root]);
+    expect(configuredPat.exitCode).toBe(0);
+    expect(configuredPat.stdout).not.toContain("test-token");
+    expect(configuredPat.stderr).not.toContain("test-token");
+
+    const compose = await readFile(
+      join(skill, "assets", "compose.production.yml"),
+      "utf8",
+    );
+    expect(compose).toContain('GITHUB_AUTH_METHODS: "${GITHUB_AUTH_METHODS:-github_app}"');
+    expect(compose).toContain('GITHUB_CONFIGURED_PAT_LOGIN: "${GITHUB_CONFIGURED_PAT_LOGIN:-false}"');
+    expect(compose).toContain('API_ORIGIN: "http://api:3000"');
+    expect(compose).not.toContain("GITHUB_PERSONAL_ACCESS_TOKEN:");
+    const previewSection = compose.slice(compose.indexOf("  preview:"));
+    expect(previewSection).not.toContain("env_file:");
+  });
 });

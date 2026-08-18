@@ -1,5 +1,8 @@
 # GitHub App setup
 
+Use this reference only when `github_app` is included in `GITHUB_AUTH_METHODS`.
+For PAT-only or side-by-side token guidance, see [personal access token setup](personal-access-token.md).
+
 ## Permissions
 
 Configure the GitHub App with:

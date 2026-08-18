@@ -1,7 +1,7 @@
 ---
 name: install-space-station
 description: Installs, configures, starts, verifies, upgrades, or removes the public Space Station Docker stack. Use when someone wants to run Space Station locally from GHCR without installing application source or dependencies.
-compatibility: Requires Docker with Compose. A GitHub App is required for real GitHub authentication and reviews.
+compatibility: Requires Docker with Compose. A GitHub App or personal access token login is required for real GitHub authentication and reviews.
 ---
 
 # Install Space Station
@@ -35,7 +35,7 @@ If Docker is unavailable, stop and ask the user to install or start Docker Deskt
 
 ## Select an exact release
 
-Use the exact version requested by the user. If none is given, propose `1.0.0` and confirm it. The public image is:
+Use the exact version requested by the user. If none is given, propose `1.0.1` and confirm it. The public image is:
 
 ```text
 ghcr.io/gmnikhil/space-station:<version>
@@ -55,7 +55,15 @@ The bootstrap script copies the bundled production Compose definition, creates a
 
 If `.env` already exists, bootstrap refuses to modify it. Preserve the existing installation and switch to validation or upgrade.
 
-Ask the user to edit `$INSTALL_DIR/.env` locally and populate these GitHub App values themselves:
+Ask the user to edit `$INSTALL_DIR/.env` locally and choose one of these authentication modes:
+
+- `GITHUB_AUTH_METHODS=github_app` keeps the legacy GitHub App-only deployment.
+- `GITHUB_AUTH_METHODS=github_app,personal_access_token` shows both login paths.
+- `GITHUB_AUTH_METHODS=personal_access_token` enables PAT-only login and does not require GitHub App values.
+
+In PAT mode, users can enter their own token in the browser; no deployment PAT is needed for that flow. For the optional shared/server-configured PAT button, set `GITHUB_PERSONAL_ACCESS_TOKEN` only in the private `.env` and set `GITHUB_CONFIGURED_PAT_LOGIN=true`. Every browser then uses that configured GitHub identity, so this mode is intended for a trusted single-user or tightly controlled deployment. Never put the PAT in a `VITE_*` variable, the web/preview role, a URL, or chat.
+
+When `github_app` is enabled, populate these fields locally:
 
 - `GITHUB_APP_ID`
 - `GITHUB_PRIVATE_KEY`, with PEM newlines represented as literal `\n`
@@ -63,7 +71,7 @@ Ask the user to edit `$INSTALL_DIR/.env` locally and populate these GitHub App v
 - `GITHUB_CLIENT_SECRET`
 - `GITHUB_WEBHOOK_PUBLIC_URL` when using a tunnel
 
-The user must copy the generated `GITHUB_WEBHOOK_SECRET` from their private local file into their GitHub App webhook settings. Do not display it. Use [GitHub App setup](references/github-app-setup.md) for permissions, callback, webhook events, and localhost constraints.
+The user must copy the generated `GITHUB_WEBHOOK_SECRET` from their private local file into their GitHub App webhook settings. Do not display it. Use [GitHub App setup](references/github-app-setup.md) and [personal access token setup](references/personal-access-token.md) for permissions, callback, webhook events, token guidance, and localhost constraints.
 
 Pause until the user confirms they finished editing. Never infer or fabricate credentials.
 

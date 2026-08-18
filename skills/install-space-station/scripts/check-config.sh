@@ -31,6 +31,15 @@ value_for() {
   ' "$env_file"
 }
 
+has_key() {
+  key=$1
+  KEY="$key" awk '
+    BEGIN { prefix = ENVIRON["KEY"] "="; found = 0 }
+    index($0, prefix) == 1 { found = 1 }
+    END { exit(found ? 0 : 1) }
+  ' "$env_file"
+}
+
 invalid=""
 add_invalid() {
   case " $invalid " in
@@ -44,11 +53,6 @@ for key in \
   APP_ORIGIN \
   API_ORIGIN \
   PREVIEW_ORIGIN \
-  GITHUB_APP_ID \
-  GITHUB_PRIVATE_KEY \
-  GITHUB_CLIENT_ID \
-  GITHUB_CLIENT_SECRET \
-  GITHUB_WEBHOOK_SECRET \
   AUTH_SESSION_KEYS \
   PREVIEW_SIGNING_SECRET
 do
@@ -63,6 +67,58 @@ printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || add_invalid SP
 [ "$(value_for AUTH_MODE)" = "github" ] || add_invalid AUTH_MODE
 [ "$(value_for GITHUB_FIXTURE_MODE)" = "0" ] || add_invalid GITHUB_FIXTURE_MODE
 [ "$(value_for AUTH_COOKIE_SECURE)" = "false" ] || add_invalid AUTH_COOKIE_SECURE
+
+auth_methods=$(value_for GITHUB_AUTH_METHODS)
+if [ -z "$auth_methods" ]; then
+  # Older installations omitted this field and intentionally default to App-only.
+  if has_key GITHUB_AUTH_METHODS; then
+    add_invalid GITHUB_AUTH_METHODS
+  else
+    auth_methods=github_app
+  fi
+fi
+
+app_enabled=false
+pat_enabled=false
+case "$auth_methods" in
+  github_app) app_enabled=true ;;
+  personal_access_token) pat_enabled=true ;;
+  github_app,personal_access_token)
+    app_enabled=true
+    pat_enabled=true
+    ;;
+  *) add_invalid GITHUB_AUTH_METHODS ;;
+esac
+
+configured_pat=$(value_for GITHUB_CONFIGURED_PAT_LOGIN)
+if [ -z "$configured_pat" ] && ! has_key GITHUB_CONFIGURED_PAT_LOGIN; then
+  configured_pat=false
+fi
+case "$configured_pat" in
+  true|false) ;;
+  *) add_invalid GITHUB_CONFIGURED_PAT_LOGIN ;;
+esac
+
+personal_token=$(value_for GITHUB_PERSONAL_ACCESS_TOKEN)
+if [ -n "$personal_token" ] && [ "${#personal_token}" -gt 2048 ]; then
+  add_invalid GITHUB_PERSONAL_ACCESS_TOKEN
+fi
+if [ "$configured_pat" = "true" ]; then
+  [ "$pat_enabled" = true ] || add_invalid GITHUB_AUTH_METHODS
+  [ -n "$personal_token" ] || add_invalid GITHUB_PERSONAL_ACCESS_TOKEN
+fi
+
+if [ "$app_enabled" = true ]; then
+  for key in \
+    GITHUB_APP_ID \
+    GITHUB_PRIVATE_KEY \
+    GITHUB_CLIENT_ID \
+    GITHUB_CLIENT_SECRET \
+    GITHUB_WEBHOOK_SECRET
+  do
+    [ -n "$(value_for "$key")" ] || add_invalid "$key"
+  done
+fi
 
 if [ -n "$invalid" ]; then
   printf '%s\n' "Missing or invalid configuration fields:" >&2
